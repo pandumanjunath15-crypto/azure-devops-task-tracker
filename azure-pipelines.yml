@@ -1,0 +1,60 @@
+trigger:
+  branches:
+    include:
+      - main
+      - develop
+
+pr:
+  branches:
+    include:
+      - main
+      - develop
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  pythonVersion: '3.12'
+
+stages:
+  - stage: BuildAndTest
+    displayName: Build and test
+    jobs:
+      - job: PythonTests
+        displayName: Install dependencies and run tests
+        steps:
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: '$(pythonVersion)'
+            displayName: Select Python
+
+          - script: |
+              python -m pip install --upgrade pip
+              pip install -r requirements-dev.txt
+            displayName: Install dependencies
+
+          - script: |
+              python -m unittest discover -s tests -v
+            displayName: Run unit tests
+
+          - task: ArchiveFiles@2
+            displayName: Package application
+            inputs:
+              rootFolderOrFile: '$(Build.SourcesDirectory)'
+              includeRootFolder: false
+              archiveType: zip
+              archiveFile: '$(Build.ArtifactStagingDirectory)/task-tracker-$(Build.BuildId).zip'
+              replaceExistingArchive: true
+              verbose: false
+
+          - task: PublishBuildArtifacts@1
+            displayName: Publish build artifact
+            inputs:
+              PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+              ArtifactName: 'drop'
+              publishLocation: 'Container'
+
+# Optional deployment:
+# Add an Azure App Service service connection in Project Settings > Service connections,
+# then add an AzureWebApp@1 task after the build/test stage. Configure its
+# azureSubscription, appName, and package inputs for your environment.
